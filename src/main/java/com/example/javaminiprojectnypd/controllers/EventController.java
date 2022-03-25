@@ -85,8 +85,6 @@ public class EventController {
 
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<String> handleException(ConstraintViolationException ex) {
-        // Loop through FieldErrors in ex.getBindingResult();
-        // return *YourErrorReponse* filled using *fieldErrors*
         StringBuilder errorMessage = new StringBuilder("Errors: \n");
         Set<ConstraintViolation<?>> constraintViolationsSet = ex.getConstraintViolations();
         Iterator<ConstraintViolation<?>> iterator = constraintViolationsSet.iterator();
