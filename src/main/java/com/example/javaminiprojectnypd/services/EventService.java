@@ -30,8 +30,6 @@ public class EventService {
     }
 
     public Integer getTotal() {
-        List<EventDTO> eventDTOList = eventRepository.findAll();
-        int count = eventDTOList.size();
         return eventRepository.findAll().size();
     }
 
