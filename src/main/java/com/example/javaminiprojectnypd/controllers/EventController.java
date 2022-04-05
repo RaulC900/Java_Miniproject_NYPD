@@ -1,6 +1,6 @@
 package com.example.javaminiprojectnypd.controllers;
 
-import com.example.javaminiprojectnypd.models.EventDTO;
+import com.example.javaminiprojectnypd.models.Event;
 import com.example.javaminiprojectnypd.models.ICountDTO;
 import com.example.javaminiprojectnypd.models.MessageReceivedDTO;
 import com.example.javaminiprojectnypd.models.TotalDTO;
@@ -14,6 +14,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import javax.validation.ConstraintViolation;
 import javax.validation.ConstraintViolationException;
@@ -47,11 +48,18 @@ public class EventController {
     }
 
     @DeleteMapping(path = "{id}")
-    public ResponseEntity<String> deleteRecord(@PathVariable("id")
-                                               @NotNull
-                                               @Min(value = 100000000, message = "id must be a 9-digit number")
-                                               @Max(value = 999999999, message = "id must be a 9-digit number") int eventId) {
-        MessageReceivedDTO mr = eventService.deleteEvent(eventId);
+    public ResponseEntity<String> deleteRecord(@PathVariable("id") String complaintId) {
+        int value;
+        try {
+            value = Integer.parseInt(complaintId);
+            if(value <= 100000000 || value >= 999999999) {
+                return new ResponseEntity<>("complaintId must be an 9-digit number", HttpStatus.BAD_REQUEST);
+            }
+        } catch (Exception ex) {
+            return new ResponseEntity<>("complaintId should be an Integer", HttpStatus.BAD_REQUEST);
+        }
+
+        MessageReceivedDTO mr = eventService.deleteEvent(value);
         if(mr.getBool()) {
             return new ResponseEntity<>(mr.getMessage(), HttpStatus.OK);
         }
@@ -59,12 +67,44 @@ public class EventController {
     }
 
     @PostMapping
-    public ResponseEntity<String> createRecord(@Valid @RequestBody EventDTO event) {
-        MessageReceivedDTO mr = eventService.addEvent(event);
-        if(mr.getBool()) {
-            return new ResponseEntity<>(mr.getMessage(), HttpStatus.CREATED);
+    public ResponseEntity<String> createRecord(@RequestBody HashMap<String, String> data) {
+        MessageReceivedDTO validationMessage = eventService.validateInput(data, "ADD_EVENT");
+        if(validationMessage.getBool()) {
+            StringBuilder errorMessage = new StringBuilder("Errors: ");
+            boolean foundError = false;
+            try {
+                int value = Integer.parseInt(data.get("complaintId"));
+                if(value <= 100000000 || value >= 999999999) {
+                    errorMessage.append("\ncomplaintId must be an 9-digit number");
+                }
+            } catch (Exception ex) {
+                errorMessage.append("\ncomplaintId should be an Integer");
+                foundError = true;
+            }
+            try {
+                int value = Integer.parseInt(data.get("offenseCode"));
+                if(value <= 100 || value >= 999) {
+                    errorMessage.append("\noffenseCode must be an 3-digit number");
+                }
+            } catch (Exception ex) {
+                errorMessage.append("\noffenseCode should be an Integer");
+                foundError = true;
+            }
+
+            if(foundError) {
+                return new ResponseEntity<>(errorMessage.toString(), HttpStatus.BAD_REQUEST);
+            }
+
+            Event event = new Event(Integer.parseInt(data.get("complaintId")), Integer.parseInt(data.get("offenseCode")));
+            MessageReceivedDTO mr = eventService.addEvent(event);
+            if(mr.getBool()) {
+                return new ResponseEntity<>(mr.getMessage(), HttpStatus.CREATED);
+            }
+            else {
+                return new ResponseEntity<>(mr.getMessage(), HttpStatus.NOT_ACCEPTABLE);
+            }
         }
-        return new ResponseEntity<>(mr.getMessage(), HttpStatus.NOT_ACCEPTABLE);
+        return new ResponseEntity<>(validationMessage.getMessage(), HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
